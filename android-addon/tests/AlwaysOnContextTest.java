@@ -292,7 +292,7 @@ public final class AlwaysOnContextTest {
 
         String turbo = read("src/com/turboio/addon/TurboAddon.java", "android-addon/src/com/turboio/addon/TurboAddon.java");
         check(turbo.contains("public static void dispatchAlwaysOn(Object source, Object response)"));
-        check(turbo.contains("AlwaysOnConsume.dispatchDetailed"));
+        check(turbo.contains("AlwaysOnConsume.invokeOriginal(source, response)"));
         check(turbo.contains("scheduleRayneoUpload"));
         check(turbo.contains("RayneoQueryBridge.TOOL_NAME"));
         check(turbo.contains("tools.call(RayneoQueryBridge.TOOL_NAME"));

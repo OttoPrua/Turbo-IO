@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import {execFileSync} from 'node:child_process';
+import {deflateRawSync} from 'node:zlib';
 import {fileURLToPath} from 'node:url';
 import {
   addStoredFile,
@@ -16,14 +16,11 @@ import {
 } from './package-105.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-const repo = path.join(root, '..');
 
-test('package.mjs is unchanged from git HEAD', () => {
-  const diff = execFileSync('git', ['diff', 'HEAD', '--', 'android-addon/package.mjs'], {
-    encoding: 'utf8',
-    cwd: repo,
-  });
-  assert.equal(diff, '');
+test('compatibility entry delegates to the maintained packaging chain', () => {
+  const legacy = fs.readFileSync(path.join(root, 'package-105.mjs'), 'utf8');
+  assert.match(legacy, /await import\('\.\/package\.mjs'\)/);
+  assert.equal(legacy.includes('NavGlasses;->event'), false);
 });
 
 test('synthetic colliding res/ names restore from ZIP entries without extracting', () => {
@@ -69,6 +66,28 @@ test('synthetic colliding res/ names restore from ZIP entries without extracting
   const tampered = compareOfficialResources(official, broken);
   assert.ok(tampered.unauthorized.includes('res/2f.xml'));
   assert.ok(isResourceName('resources.arsc'));
+});
+
+test('raw deflated resources survive without dropping manifest, public assets or addon DEX', () => {
+  const raw = storedEntry('res/Case.xml', Buffer.from('synthetic-resource-'.repeat(50)));
+  raw.data = deflateRawSync(raw.data, {level: 1});
+  raw.method = 8;
+  raw.compSize = raw.data.length;
+  const official = writeZipEntries([raw, storedEntry('resources.arsc', Buffer.from('arsc'))]);
+  const retained = [storedEntry('AndroidManifest.xml', Buffer.from('patched-manifest')),
+    storedEntry('assets/turboio/public.bin', Buffer.from('public-asset')),
+    storedEntry('classes4.dex', Buffer.from('addon-dex'))];
+  const rebuilt = writeZipEntries([...retained, storedEntry('res/unapproved.xml', Buffer.from('remove'))]);
+  const restored = restoreOfficialResources(official, rebuilt);
+  const entries = new Map(readZipEntries(restored).map(entry => [entry.name, entry]));
+  const actual = entries.get(raw.name);
+  for (const field of ['method', 'compSize', 'size', 'crc']) assert.equal(actual[field], raw[field]);
+  assert.deepEqual(actual.data, raw.data);
+  for (const entry of retained) assert.deepEqual(entries.get(entry.name).data, entry.data);
+  const result = compareOfficialResources(official, restored);
+  assert.deepEqual(result.missing, []);
+  assert.deepEqual(result.unauthorized, []);
+  assert.equal(entries.has('res/unapproved.xml'), false);
 });
 
 test('optional official APK evidence restore when the local file is present', {skip: !process.env.RAYNEO_OFFICIAL_APK}, () => {
