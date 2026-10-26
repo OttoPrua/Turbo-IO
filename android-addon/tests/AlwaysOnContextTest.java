@@ -295,8 +295,8 @@ public final class AlwaysOnContextTest {
         check(turbo.contains("AlwaysOnConsume.invokeOriginal(source, response)"));
         check(turbo.contains("scheduleRayneoUpload"));
         check(turbo.contains("RayneoQueryBridge.TOOL_NAME"));
-        check(turbo.contains("tools.call(RayneoQueryBridge.TOOL_NAME"));
-        check(turbo.contains("RayneoQueryBridge.LABELED_DATA_PREFIX"));
+        check(turbo.contains("new ToolTurn(searchOn, true, rideOn, knowledgeOn, rayneoOn)"));
+        check(!turbo.contains("JSONObject rayneoCtx = tools.call"));
         check(!turbo.contains("persona + rayneoCtx"));
         int asrAt = turbo.indexOf("public static void dispatchAsr");
         int nlpAt = turbo.indexOf("public static void dispatchNlp");

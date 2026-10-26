@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {deflateRawSync} from 'node:zlib';
+import {profileFor} from './host-profiles.mjs';
 import {fileURLToPath} from 'node:url';
 import {
   addStoredFile,
@@ -90,16 +91,13 @@ test('raw deflated resources survive without dropping manifest, public assets or
   assert.equal(entries.has('res/unapproved.xml'), false);
 });
 
-test('optional official APK evidence restore when the local file is present', {skip: !process.env.RAYNEO_OFFICIAL_APK}, () => {
+test('optional pinned 1.0.6/1.0.7 resource evidence restore', {skip: !process.env.RAYNEO_OFFICIAL_APK}, () => {
   const officialPath = process.env.RAYNEO_OFFICIAL_APK;
   if (!officialPath) return;
-  if (!fs.existsSync(officialPath)) {
-    console.log('official 1.0.5 APK absent; synthetic ZIP gate still holds');
-    return;
-  }
+  assert.ok(fs.existsSync(officialPath), 'Explicit official APK input is absent');
   const official = fs.readFileSync(officialPath);
   const sha = crypto.createHash('sha256').update(official).digest('hex');
-  assert.equal(sha, '770ba0793d31609aa1e4477db2f8a7aec2c8acc4d9c6ab43d57b0dfc720d3ab3');
+  assert.ok([216,230].includes(profileFor(sha).code));
   const dummy = writeZipEntries([
     storedEntry('classes.dex', Buffer.from('x')),
     storedEntry('res/2F.xml', Buffer.from('folded')),
@@ -112,5 +110,5 @@ test('optional official APK evidence restore when the local file is present', {s
     + ' unauthorized=' + comparison.unauthorized.length);
   assert.equal(comparison.missing.length, 0);
   assert.equal(comparison.unauthorized.length, 0);
-  assert.ok(comparison.officialCount >= 1605);
+  assert.ok(comparison.officialCount > 0);
 });

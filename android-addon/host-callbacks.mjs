@@ -20,10 +20,13 @@ export function wrapHostCallback(file,name,signature,args,returnMode) {
   const map={onAsrResult:'dispatchAsr(Ljava/lang/Object;Ljava/lang/String;ZLjava/lang/String;)V',
     onNlpResult:'dispatchNlp(Ljava/lang/Object;Ljava/lang/Object;)V',onResponseComplete:'dispatchComplete(Ljava/lang/Object;)V',
     onPostResume:'install(Landroid/app/Activity;)V',
-    onAlwaysOnResponse:'dispatchAlwaysOn(Ljava/lang/Object;Ljava/lang/Object;)V'};
+    onNotificationPosted:'notificationPosted(Ljava/lang/Object;Landroid/service/notification/StatusBarNotification;)V',
+    onNotificationRemoved:'notificationRemoved(Ljava/lang/Object;Landroid/service/notification/StatusBarNotification;)V'};
+  // Observers run after the original and never affect it; the ASR/NLP hooks own dispatch instead.
+  const after=['onPostResume','onNotificationPosted','onNotificationRemoved'].includes(name);
   if(!map[name])throw new Error('Unsupported callback: '+name);
   const bridge='invoke-static/range {'+args+'}, Lcom/turboio/addon/TurboAddon;->'+map[name];
-  const body=name!=='onPostResume'
+  const body=!after
     ? `    :turboio_try\n    ${bridge}\n    :turboio_try_end\n    return-void\n    :turboio_error\n    move-exception v0\n    ${invoke}\n    return-void`
     : `    ${invoke}\n    :turboio_try\n    ${bridge}\n    :turboio_try_end\n    return-void\n    :turboio_error\n    move-exception v0\n    return-void`;
   text+='\n'+header+'\n    .locals 1\n'+body+'\n    .catch Ljava/lang/Throwable; {:turboio_try .. :turboio_try_end} :turboio_error\n.end method\n';

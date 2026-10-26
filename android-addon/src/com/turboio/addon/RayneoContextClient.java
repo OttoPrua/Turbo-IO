@@ -55,7 +55,7 @@ final class RayneoContextClient {
     }
 
     boolean uploadConfigured() {
-        return prefs.getBoolean("rayneo_upload", false) && endpointConfigured();
+        return RayneoCaptureSupport.available() && prefs.getBoolean("rayneo_upload", false) && endpointConfigured();
     }
 
     boolean endpointConfigured() {

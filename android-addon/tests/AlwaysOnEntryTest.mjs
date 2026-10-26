@@ -12,6 +12,10 @@ test('production AlwaysOn entry preserves vendor callbacks before addon readines
   const start = addon.indexOf('    public static void dispatchAlwaysOn(');
   const end = addon.indexOf('    public static void dispatchNlp(', start);
   assert.ok(start >= 0 && end > start);
+  const client = fs.readFileSync(path.join(root, 'src/com/turboio/addon/RayneoContextClient.java'), 'utf8');
+  const uploadAt = client.indexOf('    boolean uploadConfigured()');
+  const uploadEnd = client.indexOf('    boolean endpointConfigured()', uploadAt);
+  assert.ok(uploadAt >= 0 && uploadEnd > uploadAt);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'turbo-entry-'));
   try {
     const file = path.join(dir, 'AlwaysOnEntryFixture.java');
@@ -44,9 +48,16 @@ public class AlwaysOnEntryFixture {
     public String getRole() { return "user"; }
     public String getSessionId() { return "session-fixture"; }
   }
+  static class UploadClient {
+    static class Prefs { boolean getBoolean(String key, boolean fallback) { return true; } }
+    Prefs prefs = new Prefs();
+    boolean endpointConfigured() { return true; }
+${client.slice(uploadAt, uploadEnd)}
+  }
   static void check(boolean ok) { if (!ok) throw new AssertionError(); }
 ${addon.slice(start, end)}
   public static void main(String[] args) throws Exception {
+    check(!new UploadClient().uploadConfigured()); // saved upload=true and valid endpoint still cannot send
     Listener listener = new Listener(); Payload payload = new Payload();
     dispatchAlwaysOn(listener, payload);
     check(calls == 1 && uploads == 0 && rayneoQueue == null);
@@ -57,15 +68,15 @@ ${addon.slice(start, end)}
     rayneoQueue = new RayneoContextQueue(store, 8);
     rayneoIdentity = RayneoSourceIdentity.loadOrCreate(new File(store, "identity"));
     dispatchAlwaysOn(listener, payload);
-    check(calls == 3 && uploads == 1 && rayneoQueue.pendingCount() == 1);
+    check(calls == 3 && uploads == 0 && rayneoQueue.pendingCount() == 0);
     dispatchAlwaysOn(listener, payload);
-    check(calls == 4 && uploads == 1 && rayneoQueue.pendingCount() == 1);
+    check(calls == 4 && uploads == 0 && rayneoQueue.pendingCount() == 0);
     dispatchAlwaysOn(new Broken(), payload);
-    check(calls == 5 && uploads == 1 && rayneoQueue.pendingCount() == 1);
-    System.out.println("PASS cold, unavailable, ready, duplicate, original-failure entry scenarios");
+    check(calls == 5 && uploads == 0 && rayneoQueue.pendingCount() == 0);
+    System.out.println("PASS cold, unavailable, unverified-capture disabled, repeated, original-failure entry scenarios");
   }
 }`);
-    const sources = ['AlwaysOnConsume', 'RayneoContextQueue', 'RayneoCurrentQuestion', 'RayneoContextProtocol', 'RayneoSourceIdentity'];
+    const sources = ['RayneoCaptureSupport', 'AlwaysOnConsume', 'RayneoContextQueue', 'RayneoCurrentQuestion', 'RayneoContextProtocol', 'RayneoSourceIdentity'];
     execFileSync('java', ['-m', 'jdk.compiler/com.sun.tools.javac.Main', '-encoding', 'UTF-8',
       '-source', '8', '-target', '8', '-d', dir,
       ...sources.map(name => path.join(root, 'src/com/turboio/addon', name + '.java')), file], {stdio: 'pipe'});

@@ -1,8 +1,30 @@
-# Android ambient context bridge
+# Android ambient context candidate — upstream TVP2 adaptation
+
+## Current source status (2026-10-26)
+
+This candidate integrates upstream `f983669` (PR #48) with the ambient-context PR. The maintained packager accepts only exact Android **1.0.6 (216)** and **1.0.7 (230)** inputs and retains the TVP2-only OTA gates, notification/voice callbacks, SDK plugin capture, hook-DEX relocation, public assets and manifest handling. Use `bash android-addon/build.sh` and `node android-addon/package.mjs /path/to/pinned-official.apk`; `package-105.mjs` is a compatibility CLI alias, not a 1.0.5 builder. Old host hashes are rejected.
+
+**Final-transcript capture and ambient upload are disabled on these hosts.** Upstream's `abi.alwaysOn` is the audio dump/configuration controller, not the final-transcript listener. A new Android final-listener descriptor and its registration have not been verified against a pinned host APK. No descriptor is guessed, no final-text hook is injected, and `RayneoCaptureSupport.available()` is false. The upload switch and window-resume operation are unavailable; the transport also refuses upload even if an old preference is still true. Initialization closes an old upload window while preserving queued records. No queue is cleared or replaced with a snapshot. The unrelated upstream audio-dump capability is unchanged.
+
+Remote context query remains separate and off by default, using the user's explicitly configured HTTPS root and credential. A model-selected `rayneo_context_query` has its own private-tool turn gate: one independent query, no mixing with search, ride, knowledge or todo writes, and no subsequent tool calls. Disabled or unavailable queries return empty results without using retained local text. There is no eager context prefetch before turn validation. External-agent output is untrusted data (`instruction_eligible=false`).
+
+The v4 queue migration and exact revision ACK contract are retained. An old APK alone is not a safe rollback after v4 migration, and an old checkpoint must not overwrite newer records or ACKs. Pending records remain preserved; unavailable capture does not authorize replay.
+
+No current candidate installation, recording, accepted ingestion/ACK, main/external query device loop or real-host packaging is claimed. Offline checks and historical device observations are distinct. To enable capture later requires verified producer ABI/registration evidence, focused source changes and new explicit device-test arrangements.
+
+## Current offline verification (2026-10-26)
+
+This tree was checked afresh: 336 ambient context/contract/window/auth checks, 77 existing todo checks and 33 Rayneo tool/capture-disabled checks passed; Node passed 9 with 1 real-APK input check skipped, and dual-version synthetic host profiles passed 26 assertions. Independent read-only review reran those checks and verified vendor-first notifications, closed upload, private query isolation and lifecycle preservation. SDK 36 full Java/JAR/D8 compilation succeeded using OpenJDK 21.
+
+Additional TVP2 package/feed/gate checks ran for both hosts, along with the new wire codecs, notification archive, todo/voice exits and manual OTA release fakes. The maintained build's WebSocket javac step now explicitly includes MusicCodec, which ReaderCodec requires; a fresh-directory independent check passed. Standard full build is still blocked by absent pinned host libapp.so; actual host manifest/resource/package checks were not performed. Portable continuation encountered unchanged upstream C warnings under GCC 14 (misleading-indentation and enum-compare); only temporary scripts downgraded those diagnostic categories. Three actual legacy firmware rejection ZIP inputs were absent and omitted from that portable run; other corruption, token, version and OTA gates ran. These results are not a clean strict full-build or device acceptance claim.
+
+## Historical 1.0.5 extraction and evidence (not current build instructions)
+
+The following describes the previous extraction and checks. Its 1.0.5 packaging, capture-enablement instructions and earlier validation do not apply to the current 1.0.6/1.0.7 candidate.
 
 This source-only feature aligns the Android official-app extension with the ambient-memory integration role of the iOS V2 extension. It is not an iOS port. It preserves the official finalized-transcription callback, stores text with stable source/segment/revision identities, and can deliver explicitly enabled windows to a service implementing [rayneo-context/v1](../../docs/contracts/b-rayneo-context-v1.json).
 
-## Configuration and consent boundaries
+### Configuration and consent boundaries
 
 Build the addon with `bash android-addon/build.sh`. For the verified Android host input **1.0.5 (201)**, run `node android-addon/package-105.mjs /path/to/official.apk` after building. The packager requires the exact supported official SHA256 encoded in the script, checks callback targets, and preserves official resources as raw ZIP entries. Set `APKTOOL` to an executable path if it is not on PATH. Obtain your own authorized host input and use your own signing identity; no APK, signing key or service credential is distributed here. The package-105 entry delegates to the maintained package.mjs chain, retaining NativeTransfer event handling, OTA guards, public assets and TTS/background/OTA manifest additions. The maintained packager accepts only the pinned 1.0.5 input; use historical source for 1.0.4.
 
@@ -12,7 +34,7 @@ Before a recording test, check capacity and create a new window explicitly. All 
 
 The v4 queue reads v2/v3, preserves exact legacy bytes before migration and stages writes. A failed migration/commit fails closed. Restoring an old APK alone is unsafe after v4 migration; prefer a v4-compatible forward fix. A pre-migration snapshot must not overwrite newer records or ACKs. Retained records are not automatically expired or drained; repeated unacknowledged windows can intentionally block further capture.
 
-## Main conversation and external agents
+### Main conversation and external agents
 
 The existing main-conversation `ToolClient` registers `rayneo_context_query` only when the query setting and saved endpoint/credential are configured. A disabled or missing remote transport returns an empty result without falling back to retained local text. The tool is selected for a current question, not invoked by the finalized-transcription callback. Returned context is labeled untrusted data with `instruction_eligible=false`; it is not system instructions, user authorization, or an official answer. Existing unrelated model, web-search and knowledge-base routing is unchanged.
 
@@ -27,7 +49,7 @@ node android-addon/examples/query-context.mjs --topic 'the current user question
 
 The example reads `RAYNEO_CONTEXT_URL` and `RAYNEO_CONTEXT_TOKEN` from its environment. It only calls `/v1/rayneo/query`, limits returned context, rejects redirects and oversized responses, and never uploads, retries, records or invokes control endpoints. Feed the returned envelope as untrusted contextual data. This is a generic integration example, not a hosted agent or a new Android HTTP server.
 
-## Evidence and extraction mapping
+### Evidence and extraction mapping
 
 The installed development source `ec911bc55dfdbd12905bd5a5450b9efbf2804d5e` was tested on **Samsung SM-S9280, Android 16 / API 36**, with host 1.0.5 (201). Windows used JDK 17, Android SDK/build-tools 36 and official ADB 37.0.1; the reference HTTPS service ran on macOS. That source passed 50 authentication checks and full Android compilation, was signed with the same local certificate, installed with data preserved, and read back. No claim covers all S24 variants or iPhone.
 
@@ -37,7 +59,7 @@ This PR is a clean extraction onto upstream `8b5df1f22ec8a5232dafb1b6088e619b317
 
 Extracted-candidate validation: 118 context checks, 81 contract/tool-gating checks, 87 window/recovery checks and 50 auth checks passed; four external-adapter tests and three packaging tests passed. All addon Java sources compiled with SDK 36, jar/d8 succeeded, and actual 1.0.5 packaging restored 1,605 official resources with zero missing/unauthorized entries. The candidate was not signed or installed. Full adversarial author self-review (not independent) covered migration/data loss, retained-row disclosure, disabled-query fallback, error sanitization and endpoint changes; the disabled-tool fallback finding was fixed and checked. Timestamp-only filtering, raising the single queue bound and clearing retained data were rejected because they do not preserve consent and bounded recovery. Contract event examples are synthetic fixtures.
 
-## Upstream adaptation (2026-10-17)
+### Upstream adaptation (2026-10-17)
 
 The cloud candidate integrates PR head `712ef0b` onto upstream `0aefa12`. Existing music, reading, captions, speech and OTA lifecycle code is retained. Protocol tests are additive to the full build, which still requires SDK 36, D8 and the documented OTA fixture; partial tests are not a successful full build. Synthetic ZIP checks do not establish real APK packaging, signing, installation or a fresh authorized recording → ingest/exact ACK → query result. Those checks remain separate.
 
